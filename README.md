@@ -7,6 +7,9 @@ cloud showing your Claude Code session and weekly usage limits.
 
 ![Hachiko-Usage on the desktop](hachiko-usage.png)
 
+**[⬇ Download Hachiko-Usage-Setup.exe](https://github.com/Freespirits/hachiko-usage/releases/latest)** —
+one press and he's yours (Windows 10/11, per-user install, no admin needed).
+
 He starts in **ghost mode** — 50% transparent, click-through (your mouse goes
 straight through him), and tiny (half his old size) — so he never gets in the
 way of real work.
