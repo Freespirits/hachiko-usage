@@ -7,12 +7,23 @@ cloud showing your Claude Code session and weekly usage limits.
 
 ![Hachiko-Usage on the desktop](hachiko-usage.png)
 
-**[⬇ Download Hachiko-Usage-Setup.exe](https://github.com/Freespirits/hachiko-usage/releases/latest)** —
-one press and he's yours (Windows 10/11, per-user install, no admin needed).
+## ⬇ Install in one press
+
+**[Download Hachiko-Usage-Setup.exe](https://github.com/Freespirits/hachiko-usage/releases/latest)**
+
+Launching it *is* the whole install — no wizard pages, no admin prompt. He
+lands in `%localappdata%\Programs\Hachiko-Usage` and offers to come out
+immediately. Windows 10/11.
+
+> The exe is an unsigned hobby build, so SmartScreen may show
+> "Windows protected your PC" — click **More info → Run anyway**.
+
+## What he does
 
 He starts in **ghost mode** — 50% transparent, click-through (your mouse goes
-straight through him), and tiny (half his old size) — so he never gets in the
-way of real work.
+straight through him), and tiny — so he never gets in the way of real work.
+His thought cloud shows live session/weekly usage percentages, and the text
+stays fully readable even while he's ghosted.
 
 ## Controls
 
@@ -28,27 +39,6 @@ driven from his **system tray icon** (right-click it):
 
 The tray tooltip also shows the current session/weekly percentages.
 
-## Run from source
-
-```
-desktop\Start Hachiko-Usage.bat
-```
-
-(Uses the bundled venv: PySide6 + PyInstaller.)
-
-## Build the one-press installer
-
-```
-cd desktop
-venv\Scripts\pyinstaller.exe Hachiko-Usage.spec --noconfirm
-ISCC.exe Hachiko-Usage.iss
-```
-
-This produces `desktop\installer\Hachiko-Usage-Setup.exe` — a one-press
-installer: launching it immediately installs to
-`%localappdata%\Programs\Hachiko-Usage` (no wizard pages, no admin rights)
-and offers to let him out right away.
-
 ## Usage data
 
 `desktop\hachiko_usage_desktop.pyw` polls
@@ -56,9 +46,32 @@ and offers to let him out right away.
 token from `~\.claude\.credentials.json`. Only the percentages are kept; the
 token never leaves the request.
 
-## Also in this repo
+---
+
+## For tinkerers
+
+### Run from source
+
+```
+desktop\Start Hachiko-Usage.bat
+```
+
+(Uses the bundled venv: PySide6 + PyInstaller.)
+
+### Build the installer yourself
+
+```
+cd desktop
+venv\Scripts\pyinstaller.exe Hachiko-Usage.spec --noconfirm
+ISCC.exe Hachiko-Usage.iss
+```
+
+This produces `desktop\installer\Hachiko-Usage-Setup.exe`.
+
+### Also in this repo
 
 - `index.html` / `hojek-atlas.png` / `hojek.json` — the original web sprite
   version and the hatch-pipeline atlas he is drawn from
+- `hachiko-usage-post.png` — his announcement-post card
 - `desktop3d.html`, `cute.glb`, `evil.glb`, `desktop/hojek3d_desktop.pyw` —
   the experimental 3D variant (still under the old name)
