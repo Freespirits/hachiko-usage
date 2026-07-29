@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hojek 3D desktop renderer</title>
+<style>
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<script src="three.min.js"></script>
+<script src="GLTFLoader.js"></script>
+<script>
+"use strict";
+/* Renderer half of the 3D desktop pet. The PySide6 window (hojek3d_desktop.pyw)
+   owns movement + input and feeds state via window.H.*; this page just makes the
+   GLB look alive: yaw, banking, bob, squash and a vertex-bend wing flap. */
+
+const CHAR_H = 170;
+const damp = (c, t, l, dt) => c + (t - c) * (1 - Math.exp(-l * dt));
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+renderer.setClearColor(0x000000, 0);
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(34, 1, 10, 5000);
+const MSIZE = new THREE.Vector3(170, 170, 170);   // normalized model bounds
+let WORLDH = 235;
+function size() {
+  renderer.setSize(innerWidth, innerHeight);   // updateStyle=true: css px == window px
+  camera.aspect = innerWidth / innerHeight;
+  /* frame the whole model (wide wingspans included) with yaw + flap headroom,
+     feet pinned near the window bottom */
+  const effW = MSIZE.x * 0.95 + MSIZE.z * 0.5;
+  const effH = MSIZE.y * 1.08 + 26;
+  WORLDH = Math.max(effH * 1.12, (effW * 1.08) / camera.aspect);
+  const D = (WORLDH / 2) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const cy = WORLDH / 2 - 16;
+  camera.position.set(0, cy, D);
+  camera.lookAt(0, cy, 0);
+  camera.updateProjectionMatrix();
+}
+size();
+addEventListener("resize", size);
+
+scene.add(new THREE.HemisphereLight(0xfff1e2, 0x5a2c3c, 0.8));
+const key = new THREE.DirectionalLight(0xffe9d2, 0.9);
+key.position.set(-260, 420, 320);
+scene.add(key);
+
+const charGroup = new THREE.Group();
+const modelGroup = new THREE.Group();
+charGroup.add(modelGroup);
+scene.add(charGroup);
+
+const FLAP = { value: 0 };
+function normalizeAndAdd(root) {
+  const box = new THREE.Box3().setFromObject(root);
+  const sz = box.getSize(new THREE.Vector3());
+  root.scale.setScalar(CHAR_H / (sz.y || 1));
+  box.setFromObject(root);
+  const c = box.getCenter(new THREE.Vector3());
+  root.position.x -= c.x; root.position.z -= c.z;
+  root.position.y -= box.min.y;
+  box.getSize(MSIZE);
+  size();                    // reframe the camera for this model's real bounds
+  root.traverse(o => {
+    if (!o.isMesh || !o.geometry) return;
+    o.frustumCulled = false;
+    o.geometry.computeBoundingBox();
+    const bb = o.geometry.boundingBox;
+    const halfW = Math.max(Math.abs(bb.min.x), Math.abs(bb.max.x)) || 1;
+    const hingeY = bb.min.y + (bb.max.y - bb.min.y) * 0.55;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    for (const m of mats) {
+      m.onBeforeCompile = sh => {
+        sh.uniforms.uFlap = FLAP;
+        sh.uniforms.uHinge = { value: halfW * 0.30 };
+        sh.uniforms.uSpan = { value: halfW };
+        sh.uniforms.uHy = { value: hingeY };
+        sh.vertexShader = sh.vertexShader
+          .replace("#include <common>",
+            "#include <common>\nuniform float uFlap; uniform float uHinge; uniform float uSpan; uniform float uHy;")
+          .replace("#include <begin_vertex>", `#include <begin_vertex>
+            {
+              float ax = abs(transformed.x);
+              float w = smoothstep(uHinge, uSpan, ax);
+              if (w > 0.001) {
+                float sgn = transformed.x < 0.0 ? -1.0 : 1.0;
+                float ang = uFlap * w * sgn;
+                vec2 p = vec2(transformed.x - sgn * uHinge, transformed.y - uHy);
+                float cs = cos(ang), sn = sin(ang);
+                transformed.x = sgn * uHinge + p.x * cs - p.y * sn;
+                transformed.y = uHy + p.x * sn + p.y * cs;
+              }
+            }`);
+      };
+      m.needsUpdate = true;
+    }
+  });
+  modelGroup.add(root);
+}
+
+const loader = new THREE.GLTFLoader();
+function loadForm(name) {
+  loader.load(name, g => { modelGroup.clear(); normalizeAndAdd(g.scene); });
+}
+loadForm("cute.glb");
+
+/* ---- state fed from Python ---- */
+const S = { state: "idle", facing: 1, vx: 0, vy: 0, air: 0 };
+const P = { yaw: 0.4, bank: 0, pitch: 0, bob: 0, sq: 1, sqv: 0, phase: 0, amp: 0.12 };
+
+window.H = {
+  set(state, facing, vx, vy, air) {
+    S.state = state; S.facing = facing; S.vx = vx; S.vy = vy; S.air = air;
+  },
+  form(name) { loadForm(name); },
+  /* px of empty window above the character's head (for the usage cloud) */
+  headroom() { return Math.max(0, Math.round((1 - (MSIZE.y + 16) / WORLDH) * innerHeight)); },
+  event(kind) {
+    if (kind === "land") { P.sq = 0.8; P.sqv = 2.2; }
+    if (kind === "jump") { P.sq = 1.14; P.sqv = -1.5; }
+  },
+};
+
+let last = performance.now();
+function tick(tms) {
+  const dt = Math.min(0.05, (tms - last) / 1000); last = tms;
+  const t = tms / 1000;
+
+  const flying = S.state === "fly" || (S.air && S.state === "held") || S.state === "jumping";
+  const hover = flying && Math.hypot(S.vx, S.vy) < 45;
+  const flapHz = S.state === "held" ? 6 : flying ? (hover ? 5 : 3) : 0.6;
+  const ampT = S.state === "held" ? 0.8 : flying ? 0.85 : S.state === "failed" ? 0.03 : 0.12;
+  P.phase += dt * Math.PI * 2 * flapHz;
+  P.amp = damp(P.amp, ampT, 5, dt);
+  FLAP.value = Math.sin(P.phase + 0.4 * Math.sin(P.phase)) * P.amp * 0.55;
+
+  P.yaw = damp(P.yaw, S.facing * 0.45, 6, dt);
+  P.bank = damp(P.bank, clamp(S.vx * 0.0016, -0.35, 0.35), 6, dt);
+  P.pitch = damp(P.pitch, S.air ? clamp(-S.vy * 0.001, -0.3, 0.3) : (S.state === "failed" ? 0.25 : 0), 6, dt);
+  P.bob = damp(P.bob, S.air ? Math.sin(P.phase) * 4 : Math.sin(t * 2.1) * 2.2, 8, dt);
+
+  P.sqv += (170 * (1 - P.sq) - 13 * P.sqv) * dt;
+  P.sq += P.sqv * dt;
+
+  charGroup.position.y = P.bob;
+  charGroup.scale.set(1 - (P.sq - 1) * 0.6, P.sq, 1 - (P.sq - 1) * 0.6);
+  charGroup.rotation.z = -P.bank + (S.state === "waving" ? Math.sin(t * 12) * 0.1 : 0);
+  modelGroup.rotation.y = P.yaw;
+  modelGroup.rotation.x = P.pitch;
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

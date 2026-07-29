@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hojek 😈</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>😈</text></svg>">
+<style>
+  :root {
+    --sky-a: #f6e7ee; --sky-b: #ffd2bc; --ground: #c98974; --ground-edge: #ae6f5c;
+    --ink: #46262f; --muted: #9c6b70; --card: rgba(255,250,246,.88); --chip: #fffdfb;
+    --chip-border: #eccfc2; --accent: #d94356; --glow: rgba(255,120,70,.18);
+    --edge-glow: rgba(255,110,64,.22); --stars: 0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --sky-a: #241323; --sky-b: #150c18; --ground: #200e17; --ground-edge: #47202b;
+      --ink: #f5e6e4; --muted: #b08d95; --card: rgba(34,20,32,.84); --chip: #31202e;
+      --chip-border: #4b2c3c; --accent: #ff5d73; --glow: rgba(255,122,72,.26);
+      --edge-glow: rgba(255,110,64,.30); --stars: 1;
+    }
+  }
+  * { margin: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font: 15px/1.5 system-ui, "Segoe UI", sans-serif; color: var(--ink);
+    background: linear-gradient(180deg, var(--sky-a), var(--sky-b) 82%);
+    overflow: hidden; user-select: none; -webkit-user-select: none;
+  }
+  #stars { position: fixed; inset: 0; pointer-events: none; opacity: var(--stars); }
+  #stars i, #stars i::after {
+    content: ""; position: absolute; width: 2px; height: 2px; border-radius: 50%;
+    background: #ffe9c9;
+  }
+  #stars i { animation: twinkle 4.6s ease-in-out infinite alternate; }
+  #stars i::after { left: 34vw; top: 22vh; animation: twinkle 5.8s 1.2s ease-in-out infinite alternate; }
+  @keyframes twinkle { from { opacity: .2 } to { opacity: .95 } }
+  @media (prefers-reduced-motion: reduce) { #stars i, #stars i::after { animation: none; opacity: .5 } }
+  #floor {
+    position: fixed; left: 0; right: 0; bottom: 0; height: 56px;
+    background: var(--ground); border-top: 3px solid var(--ground-edge);
+    box-shadow: 0 -10px 26px var(--edge-glow);
+  }
+  #card {
+    position: fixed; top: 16px; left: 16px; max-width: 350px; z-index: 6;
+    background: var(--card); backdrop-filter: blur(8px);
+    border: 1px solid var(--chip-border); border-radius: 14px; padding: 14px 16px;
+    box-shadow: 0 6px 24px rgba(20, 10, 16, .16);
+  }
+  #card h1 { font-size: 20px; letter-spacing: .3px; }
+  #card h1 small { font-weight: 500; color: var(--muted); font-size: 12px; margin-left: 6px; }
+  #card p { color: var(--muted); font-size: 12.5px; margin: 4px 0 10px; }
+  #chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  #chips button {
+    font: 600 12px system-ui, sans-serif; color: var(--ink); cursor: pointer;
+    background: var(--chip); border: 1px solid var(--chip-border);
+    border-radius: 999px; padding: 4px 11px; transition: transform .08s, border-color .15s;
+  }
+  #chips button:hover { transform: translateY(-1px); border-color: var(--accent); }
+  #chips button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  #hint { font-size: 11.5px; color: var(--muted); margin-top: 10px; }
+  #fx { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+  #stage { position: fixed; inset: 0; z-index: 3; pointer-events: none; }
+  #glow {
+    position: fixed; left: 0; bottom: 0; z-index: 1; width: 240px; height: 80px;
+    background: radial-gradient(closest-side, var(--glow), transparent 72%);
+    pointer-events: none; will-change: transform, opacity;
+  }
+  #shadow {
+    position: fixed; left: 0; bottom: 0; z-index: 2; width: 120px; height: 20px;
+    border-radius: 50%; background: rgba(30, 8, 16, .30); filter: blur(4px);
+    pointer-events: none; will-change: transform, opacity;
+  }
+  #pet {  /* invisible hit area that tracks the character */
+    position: fixed; left: 0; bottom: 0; z-index: 4; width: 190px; height: 190px;
+    cursor: grab; touch-action: none; will-change: transform;
+  }
+  /* nothing on stage until a model is loaded */
+  #pet, #shadow, #glow { display: none; }
+  body.has-model #pet, body.has-model #shadow, body.has-model #glow { display: block; }
+  #pet.held { cursor: grabbing; }
+  #bubble {
+    position: fixed; left: 0; bottom: 0; z-index: 5; padding: 5px 11px;
+    border-radius: 12px; background: var(--card); border: 1px solid var(--chip-border);
+    font-size: 13px; font-weight: 600; pointer-events: none;
+    opacity: 0; transition: opacity .25s; white-space: nowrap; will-change: transform;
+  }
+</style>
+</head>
+<body>
+<div id="stars"><i style="left:12vw;top:14vh"></i><i style="left:52vw;top:9vh"></i><i style="left:72vw;top:30vh"></i><i style="left:88vw;top:12vh"></i><i style="left:22vw;top:38vh"></i><i style="left:63vw;top:44vh"></i><i style="left:42vw;top:26vh"></i><i style="left:81vw;top:52vh"></i></div>
+<div id="floor"></div>
+<div id="card">
+  <h1>Hojek <small>cute devil &middot; re-hatched 2026-07-29</small></h1>
+  <p>The little plant-fox went through a phase &mdash; now a very polite tiny devil. New wings, same soft heart.</p>
+  <div id="chips"></div>
+  <div id="hint">drag him around &middot; click = wave &middot; double-click = flip &middot; cute/evil switches his form</div>
+</div>
+<canvas id="fx"></canvas>
+<canvas id="stage"></canvas>
+<div id="glow"></div>
+<div id="shadow"></div>
+<div id="pet"></div>
+<div id="bubble"></div>
+
+<script src="three.min.js"></script>
+<script src="GLTFLoader.js"></script>
+<script>
+"use strict";
+/* Hojek v3 — 3D pet runtime. Loads ./hojek.glb (make it on any image->3D site
+   and drop it here; ?glb=name.glb overrides). The GLB is auto-scaled and
+   ground-aligned; its animation clips (if any) are mapped to states by name.
+   If no GLB exists yet, a built-in placeholder devil made of Three.js
+   primitives fills in, so the page always works. */
+
+const FLOOR = 56, CHAR_H = 170;
+const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const $ = id => document.getElementById(id);
+const pet = $("pet"), shadow = $("shadow"), glow = $("glow"), bubble = $("bubble"), chips = $("chips");
+
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const damp = (cur, tgt, lam, dt) => cur + (tgt - cur) * (1 - Math.exp(-lam * dt));
+const now = () => performance.now();
+
+/* ---------- world state ---------- */
+let x = innerWidth * 0.6, alt = 0, vx = 0, vy = 0;
+let facing = 1;
+const minX = 110, maxX = () => innerWidth - 110;
+
+let mode = "idle", anim = "idle";   // idle | walk | fly | air | act | pose | held
+let walkTarget = 0, flyTarget = { x: 0, a: 0 }, flyWaypoints = 0, flyPinned = false;
+let airGrav = 1500, airTerm = -900;
+let actUntil = 0, animT = 0, nextThought = now() + 2200;
+let pinned = null;
+let stepPhase = 0, jumpPrep = 0, heldVX = 0, lastHeldX = 0;
+
+const P = {
+  face: 1, yaw: 0.3, lean: 0, pitch: 0,
+  sq: { x: 1, v: 0 },
+  spin: 0, spinOn: false, spinT: 0,
+  bob: 0, wingPhase: 0, flapAmpCur: 0,
+};
+
+/* ---------- speech ---------- */
+let bubbleT = 0;
+function say(text, ms = 1500) {
+  bubble.textContent = text;
+  bubble.style.opacity = 1;
+  clearTimeout(bubbleT);
+  bubbleT = setTimeout(() => bubble.style.opacity = 0, ms);
+}
+
+/* ---------- three.js scene ---------- */
+const stage = $("stage");
+const renderer = new THREE.WebGLRenderer({ canvas: stage, alpha: true, antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(34, 1, 10, 6000);
+function sizeStage() {
+  renderer.setSize(innerWidth, innerHeight, false);
+  camera.aspect = innerWidth / innerHeight;
+  /* distance such that 1 world unit == 1 px on the z=0 plane */
+  const D = (innerHeight / 2) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  camera.position.set(0, innerHeight * 0.32, D);
+  camera.lookAt(0, innerHeight * 0.32, 0);
+  camera.updateProjectionMatrix();
+}
+sizeStage();
+
+const hemi = new THREE.HemisphereLight(0xfff1e2, 0x5a2c3c, 0.8);
+scene.add(hemi);
+const key = new THREE.DirectionalLight(0xffe9d2, 0.9);
+key.position.set(-260, 420, 320);
+scene.add(key);
+const warm = new THREE.PointLight(0xff7a45, 0.4, 900, 2);
+warm.position.set(0, 40, 120);
+scene.add(warm);
+
+/* material colors are authored in sRGB; three r147 wants linear */
+const sc = hex => new THREE.Color(hex).convertSRGBToLinear();
+/* world y (px-units) where the visual floor top sits on the z=0 plane */
+const groundWY = () => camera.position.y - innerHeight / 2 + (FLOOR + 6);
+const charGroup = new THREE.Group();     // position + squash
+const spinGroup = new THREE.Group();     // flips
+const modelGroup = new THREE.Group();    // loaded glb or placeholder
+spinGroup.add(modelGroup);
+charGroup.add(spinGroup);
+scene.add(charGroup);
+window.HOJEK = { scene, camera, charGroup, modelGroup, renderer };
+/* screen px -> world: worldX = px - innerWidth/2 (camera x=0 at center) */
+const toWX = px => px - innerWidth / 2;
+
+/* ---------- glb loading ---------- */
+let mixer = null, clips = [], clipActions = {}, currentAction = null;
+let hasModel = false;
+
+const FLAP = { value: 0 };   // shared wing-bend uniform, radians
+
+function normalizeAndAdd(root) {
+  const box = new THREE.Box3().setFromObject(root);
+  const size = box.getSize(new THREE.Vector3());
+  const s = CHAR_H / (size.y || 1);
+  root.scale.setScalar(s);
+  box.setFromObject(root);
+  const c = box.getCenter(new THREE.Vector3());
+  root.position.x -= c.x;
+  root.position.z -= c.z;
+  root.position.y -= box.min.y;          // feet on y=0
+  /* static glb → living wings: bend everything past ~30% of the half-width
+     up/down around a hinge, so the wing tips flap while the body stays put */
+  root.traverse(o => {
+    if (!o.isMesh || !o.geometry) return;
+    o.frustumCulled = false;
+    o.geometry.computeBoundingBox();
+    const bb = o.geometry.boundingBox;
+    const halfW = Math.max(Math.abs(bb.min.x), Math.abs(bb.max.x)) || 1;
+    const hingeY = bb.min.y + (bb.max.y - bb.min.y) * 0.55;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    for (const m of mats) {
+      m.onBeforeCompile = sh => {
+        sh.uniforms.uFlap = FLAP;
+        sh.uniforms.uHinge = { value: halfW * 0.30 };
+        sh.uniforms.uSpan = { value: halfW };
+        sh.uniforms.uHy = { value: hingeY };
+        sh.vertexShader = sh.vertexShader
+          .replace("#include <common>",
+            "#include <common>\nuniform float uFlap; uniform float uHinge; uniform float uSpan; uniform float uHy;")
+          .replace("#include <begin_vertex>", `#include <begin_vertex>
+            {
+              float ax = abs(transformed.x);
+              float w = smoothstep(uHinge, uSpan, ax);
+              if (w > 0.001) {
+                float sgn = transformed.x < 0.0 ? -1.0 : 1.0;
+                float ang = uFlap * w * sgn;
+                vec2 p = vec2(transformed.x - sgn * uHinge, transformed.y - uHy);
+                float cs = cos(ang), sn = sin(ang);
+                transformed.x = sgn * uHinge + p.x * cs - p.y * sn;
+                transformed.y = uHy + p.x * sn + p.y * cs;
+              }
+            }`);
+      };
+      m.needsUpdate = true;
+    }
+  });
+  modelGroup.add(root);
+}
+
+function pickClip(patterns) {
+  for (const p of patterns) {
+    const c = clips.find(k => p.test(k.name));
+    if (c) return c;
+  }
+  return null;
+}
+function setupClips(gltf) {
+  clips = gltf.animations || [];
+  if (!clips.length) return;
+  mixer = new THREE.AnimationMixer(gltf.scene);
+  const map = {
+    idle:  pickClip([/idle|breath|stand/i]) || clips[0],
+    walk:  pickClip([/walk|run|move/i]),
+    fly:   pickClip([/fly|flap|hover|wing/i]),
+    wave:  pickClip([/wave|hello|greet/i]),
+    sleep: pickClip([/sleep|sad|rest|lie/i]),
+  };
+  for (const [k, c] of Object.entries(map)) {
+    if (c) clipActions[k] = mixer.clipAction(c);
+  }
+  playClip("idle");
+}
+function playClip(name) {
+  const next = clipActions[name] || clipActions.idle;
+  if (!next || next === currentAction) return;
+  next.reset().setLoop(THREE.LoopRepeat).fadeIn(0.25).play();
+  if (currentAction) currentAction.fadeOut(0.25);
+  currentAction = next;
+}
+function clipFor(a) {
+  if (a === "walk") return "walk";
+  if (a === "fly" || a === "glide" || a === "held" || a === "jump") return "fly";
+  if (a === "waving") return "wave";
+  if (a === "failed") return "sleep";
+  return "idle";
+}
+
+const loader = new THREE.GLTFLoader();
+function onModel(gltf) {
+  modelGroup.clear();
+  mixer = null; clips = []; clipActions = {}; currentAction = null;
+  normalizeAndAdd(gltf.scene);
+  setupClips(gltf);
+  hasModel = true;
+  document.body.classList.add("has-model");
+}
+
+/* two forms, both made by the boss */
+const FORMS = [["cute.glb", "cute 😈", "hehe 😈"], ["evil.glb", "evil 👿", "MUAHAHA!! 👿"]];
+let form = new URLSearchParams(location.search).get("glb") ||
+           localStorage.getItem("hojekForm") || "cute.glb";
+function loadForm(name) {
+  loader.load(name, g => {
+    onModel(g);
+    form = name;
+    localStorage.setItem("hojekForm", name);
+    const f = FORMS.find(f => f[0] === name);
+    say(f ? f[2] : "new body!", 2200);
+    syncForms();
+  }, undefined, () => { if (!hasModel) say("hmm, " + name + " did not load", 5000); });
+}
+loadForm(form);
+
+/* drag & drop a .glb straight from the file manager */
+addEventListener("dragover", e => e.preventDefault());
+addEventListener("drop", e => {
+  e.preventDefault();
+  const f = [...(e.dataTransfer.files || [])].find(f => /\.(glb|gltf)$/i.test(f.name));
+  if (!f) return;
+  f.arrayBuffer().then(buf => loader.parse(buf, "", onModel,
+    () => say("hmm, that file did not load 😞", 3000)));
+});
+
+/* ---------- behaviors (same brain as before) ---------- */
+function setAnim(name) { anim = name; animT = 0; if (mixer) playClip(clipFor(name)); }
+function backToIdle() {
+  mode = "idle"; setAnim("idle"); pinned = null; flyPinned = false;
+  scheduleThought(); syncChips();
+}
+function scheduleThought(ms) { nextThought = now() + (ms ?? (2600 + Math.random() * 4600)); }
+function startWalk() {
+  walkTarget = minX + Math.random() * (maxX() - minX);
+  if (Math.abs(walkTarget - x) < 70) { scheduleThought(1500); return; }
+  facing = walkTarget > x ? 1 : -1;
+  mode = "walk"; setAnim("walk");
+}
+function startAct(name, ms, phrase) {
+  mode = "act"; actUntil = now() + ms; setAnim(name);
+  if (phrase) say(phrase);
+  syncChips();
+}
+function airPoint() {
+  return { x: minX + Math.random() * (maxX() - minX),
+           a: 120 + Math.random() * Math.max(60, Math.min(240, innerHeight * 0.45 - 120)) };
+}
+function startFly(pin) {
+  if (mode === "held") return;
+  pinned = null; flyPinned = !!pin;
+  mode = "fly"; setAnim("fly");
+  flyWaypoints = pin ? 99 : 1 + Math.floor(Math.random() * 3);
+  flyTarget = airPoint();
+  jumpPrep = 0.14;
+  syncChips();
+}
+function jump() {
+  if (mode === "held") return;
+  pinned = null; mode = "air"; setAnim("jump");
+  airGrav = 1500; airTerm = -900;
+  jumpPrep = 0.12; vy = 0;
+  syncChips();
+}
+function think() {
+  if (mode !== "idle" || pinned) return;
+  const roll = Math.random();
+  if (roll < 0.32) startWalk();
+  else if (!RM && roll < 0.46) startFly(false);
+  else if (roll < 0.56) startAct("waving", 1400, "hi!");
+  else if (!RM && roll < 0.64) jump();
+  else if (roll < 0.74) startAct("waiting", 3400);
+  else if (roll < 0.82) startAct("review", 3200);
+  else if (roll < 0.89) startAct("failed", 6600, "aww…");
+  else scheduleThought(2000);
+}
+
+/* ---------- interactions ---------- */
+const cursor = { x: innerWidth / 2, y: innerHeight / 2, seen: false };
+addEventListener("pointermove", e => { cursor.x = e.clientX; cursor.y = e.clientY; cursor.seen = true; });
+
+let dragging = false, dragMoved = 0, lastPX = 0, clickTimer = 0;
+pet.addEventListener("pointerdown", e => {
+  pet.setPointerCapture(e.pointerId);
+  dragging = true; dragMoved = 0; lastPX = e.clientX; lastHeldX = e.clientX;
+  pet.classList.add("held");
+});
+pet.addEventListener("pointermove", e => {
+  if (!dragging) return;
+  dragMoved += Math.abs(e.clientX - lastPX) + Math.abs(e.movementY || 0);
+  if (dragMoved > 6) {
+    if (mode !== "held") { mode = "held"; setAnim("held"); pinned = null; flyPinned = false; syncChips(); }
+    x = clamp(e.clientX, minX, maxX());
+    alt = Math.max(0, innerHeight - e.clientY - FLOOR - 70);
+    const dx = e.clientX - lastPX;
+    if (Math.abs(dx) > 1.5) facing = dx > 0 ? 1 : -1;
+    heldVX = damp(heldVX, (e.clientX - lastHeldX) * 60, 8, 1 / 60);
+    lastHeldX = e.clientX;
+  }
+  lastPX = e.clientX;
+});
+pet.addEventListener("pointerup", e => {
+  pet.releasePointerCapture(e.pointerId);
+  pet.classList.remove("held");
+  const wasDrag = dragMoved > 6;
+  dragging = false;
+  if (wasDrag) {
+    mode = "air"; setAnim("glide");
+    airGrav = 700; airTerm = -235; vy = 40;
+    return;
+  }
+  if (clickTimer) {
+    clearTimeout(clickTimer); clickTimer = 0;
+    jump();
+  } else {
+    clickTimer = setTimeout(() => {
+      clickTimer = 0;
+      if (mode === "idle" || mode === "act" || mode === "pose")
+        startAct("waving", 1400, "hi!");
+    }, 260);
+  }
+});
+
+/* ---------- state panel ---------- */
+const PANEL = [
+  ["idle", "idle"], ["running", "working"], ["waiting", "waiting"], ["review", "review"],
+  ["failed", "failed"], ["waving", "wave"], ["jumping", "jump"], ["fly", "fly"],
+];
+for (const [name, label] of PANEL) {
+  const b = document.createElement("button");
+  b.textContent = label; b.dataset.state = name;
+  b.addEventListener("click", () => {
+    if (mode === "held") return;
+    if (name === "jumping") jump();
+    else if (name === "fly") startFly(true);
+    else if (name === "waving") { pinned = null; startAct("waving", 1400, "hi!"); }
+    else if (name === "idle") backToIdle();
+    else { pinned = name; flyPinned = false; mode = "pose"; setAnim(name); }
+    syncChips();
+  });
+  chips.appendChild(b);
+}
+for (const [file, label] of FORMS) {
+  const b = document.createElement("button");
+  b.textContent = label; b.dataset.form = file; b.className = "form";
+  b.addEventListener("click", () => loadForm(file));
+  chips.appendChild(b);
+}
+function syncForms() {
+  for (const b of chips.querySelectorAll(".form"))
+    b.classList.toggle("active", b.dataset.form === form);
+}
+syncForms();
+function syncChips() {
+  for (const b of chips.children) {
+    if (b.dataset.form) continue;
+    const n = b.dataset.state;
+    b.classList.toggle("active",
+      pinned ? n === pinned :
+      flyPinned ? n === "fly" :
+      n === "idle" && mode === "idle");
+  }
+}
+
+/* ---------- ember particles (2d canvas behind the 3d stage) ---------- */
+const fx = $("fx"), ctx = fx.getContext("2d");
+function sizeFx() {
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  fx.width = innerWidth * dpr; fx.height = innerHeight * dpr;
+  fx.style.width = innerWidth + "px"; fx.style.height = innerHeight + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+sizeFx();
+let darkMode = matchMedia("(prefers-color-scheme: dark)").matches;
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", e => darkMode = e.matches);
+
+const parts = [];
+function spawn(p) { if (parts.length < 260) parts.push(p); }
+let emberAcc = 0;
+function ambient(dt) {
+  if (RM) return;
+  emberAcc += dt * (darkMode ? 3.4 : 2.2);
+  while (emberAcc > 1) {
+    emberAcc -= 1;
+    spawn({ kind: "ember", x: Math.random() * innerWidth, y: innerHeight - FLOOR + 8,
+            vy: -(14 + Math.random() * 30), sway: 8 + Math.random() * 16,
+            ph: Math.random() * 7, r: 1 + Math.random() * 1.7, t: 0, life: 6 + Math.random() * 5 });
+  }
+}
+function burst(kind, bx, by, n) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    if (kind === "dust")
+      spawn({ kind, x: bx + Math.cos(a) * 12, y: by - 4, vx: Math.cos(a) * (30 + Math.random() * 50),
+              vy: -20 - Math.random() * 40, r: 3.5 + Math.random() * 3.5, t: 0, life: .55 + Math.random() * .3 });
+    else if (kind === "spark")
+      spawn({ kind, x: bx, y: by, vx: (Math.random() - .5) * 130, vy: -60 - Math.random() * 110,
+              r: 1.2 + Math.random() * 1.4, t: 0, life: .5 + Math.random() * .35 });
+    else if (kind === "zzz")
+      spawn({ kind, x: bx, y: by, vx: 14 + Math.random() * 8, vy: -26, r: 9 + i * 3.5, t: -i * .5, life: 2.1 });
+  }
+}
+function drawParts(dt) {
+  ctx.clearRect(0, 0, innerWidth, innerHeight);
+  ctx.globalCompositeOperation = darkMode ? "lighter" : "source-over";
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i];
+    p.t += dt;
+    if (p.t < 0) continue;
+    if (p.t >= p.life) { parts.splice(i, 1); continue; }
+    const u = p.t / p.life;
+    if (p.kind === "ember") {
+      p.y += p.vy * dt;
+      const ex = p.x + Math.sin(p.t * 1.3 + p.ph) * p.sway * 0.4;
+      const a = Math.sin(Math.PI * u) * (darkMode ? .8 : .5) * (0.6 + 0.4 * Math.sin(p.t * 5 + p.ph));
+      ctx.fillStyle = `rgba(255,${160 + Math.round(40 * Math.sin(p.ph))},92,${Math.max(0, a)})`;
+      ctx.beginPath(); ctx.arc(ex, p.y, p.r, 0, 7); ctx.fill();
+    } else if (p.kind === "dust") {
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= (1 - 2.5 * dt); p.vy *= (1 - 2.5 * dt);
+      ctx.fillStyle = darkMode ? `rgba(210,160,150,${.30 * (1 - u)})` : `rgba(120,70,60,${.22 * (1 - u)})`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (0.7 + u), 0, 7); ctx.fill();
+    } else if (p.kind === "spark") {
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 420 * dt;
+      ctx.fillStyle = `rgba(255,190,110,${.9 * (1 - u)})`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+    } else if (p.kind === "zzz") {
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      ctx.fillStyle = darkMode ? `rgba(235,210,220,${.85 * (1 - u)})` : `rgba(90,50,70,${.7 * (1 - u)})`;
+      ctx.font = `700 ${p.r + u * 6}px system-ui`;
+      ctx.fillText("z", p.x, p.y);
+    }
+  }
+  ctx.globalCompositeOperation = "source-over";
+}
+const feetY = () => innerHeight - (FLOOR - 12 + alt);
+const headTopY = () => feetY() - CHAR_H;
+let zzzAt = 0, sparkAt = 0;
+
+/* ---------- main loop ---------- */
+let last = now();
+function tick(tms) {
+  const dt = Math.min(0.05, (tms - last) / 1000); last = tms;
+  const t = tms / 1000;
+  animT += dt;
+
+  if (!hasModel) {          // quiet scene while waiting for the glb
+    bubble.style.transform = `translate3d(${innerWidth / 2 - 110}px, ${-(FLOOR + 90)}px, 0)`;
+    ambient(dt); drawParts(dt);
+    renderer.render(scene, camera);
+    requestAnimationFrame(tick);
+    return;
+  }
+
+  if (jumpPrep > 0) {
+    jumpPrep -= dt;
+    P.sq.x = damp(P.sq.x, 0.82, 18, dt);
+    if (jumpPrep <= 0) {
+      if (mode === "air") { vy = 580; P.sq.v = 3.5; P.spinOn = true; P.spinT = 0; }
+      else vy = 120;
+    }
+  } else if (mode === "walk") {
+    vx = damp(vx, facing * 145, 6, dt);
+    x += vx * dt;
+    stepPhase += dt * 9;
+    alt = Math.pow(Math.abs(Math.sin(stepPhase)), 0.7) * 5;
+    if ((facing > 0 && x >= walkTarget) || (facing < 0 && x <= walkTarget)) { alt = 0; vx = 0; backToIdle(); }
+  } else if (mode === "fly") {
+    const dx = flyTarget.x - x, da = flyTarget.a - alt;
+    const dist = Math.hypot(dx, da) || 1;
+    const speed = clamp(dist * 2.2, 30, 235);
+    vx = damp(vx, dx / dist * speed, 3.2, dt);
+    vy = damp(vy, da / dist * speed, 3.2, dt);
+    x += vx * dt; alt += vy * dt;
+    if (Math.abs(vx) > 12) facing = vx > 0 ? 1 : -1;
+    if (dist < 16) {
+      if (flyTarget.a <= 0 && alt < 8) {
+        alt = 0; vx = vy = 0;
+        P.sq.x = 0.88; P.sq.v = 1.4;
+        burst("dust", x, feetY(), 5);
+        backToIdle();
+      } else if (flyWaypoints > 0) { flyWaypoints--; flyTarget = airPoint(); }
+      else flyTarget = { x: x, a: 0 };
+    }
+    if (!RM && Math.random() < dt * 3) burst("spark", x - facing * 24, feetY() - 60, 1);
+  } else if (mode === "air") {
+    vy -= airGrav * dt; if (vy < airTerm) vy = airTerm;
+    alt += vy * dt;
+    if (P.spinOn) { P.spinT = Math.min(1, P.spinT + dt / 0.6); P.spin = Math.PI * 2 * (1 - Math.pow(1 - P.spinT, 3)); if (P.spinT >= 1) { P.spinOn = false; P.spin = 0; } }
+    if (alt <= 0 && vy < 0) {
+      alt = 0; vy = 0; P.spinOn = false; P.spin = 0;
+      P.sq.x = anim === "glide" ? 0.9 : 0.78; P.sq.v = anim === "glide" ? 1 : 2.2;
+      burst("dust", x, feetY(), anim === "glide" ? 4 : 8);
+      backToIdle();
+    }
+  } else if (mode === "held") {
+    vx = damp(vx, 0, 4, dt);
+    heldVX = damp(heldVX, 0, 3, dt);
+  } else if (mode === "act") {
+    if (now() >= actUntil) backToIdle();
+  } else if (mode === "idle") {
+    vx = damp(vx, 0, 8, dt);
+    if (now() >= nextThought) think();
+  }
+  x = clamp(x, minX, maxX());
+
+  P.sq.v += (170 * (1 - P.sq.x) - 13 * P.sq.v) * dt;
+  P.sq.x += P.sq.v * dt;
+
+  /* ---- pose targets ---- */
+  const airborne = alt > 2 || mode === "fly" || mode === "held";
+  let yawT = facing * 0.32;
+  if (cursor.seen && (mode === "idle" || mode === "pose" || mode === "act"))
+    yawT = clamp((cursor.x - x) / 500, -1, 1) * 0.55;      // he turns to face your cursor
+  let pitchT = airborne ? clamp(-vy * 0.0011, -0.3, 0.35) : 0;
+  let leanT = clamp(vx * 0.0012, -0.35, 0.35);
+  if (mode === "held") leanT = clamp(-heldVX * 0.0015, -0.4, 0.4) + Math.sin(t * 2.6) * 0.06;
+  if (anim === "failed") pitchT = 0.28;                     // head hangs
+  if (anim === "waving") yawT = 0;
+  if (anim === "review") { yawT = 0.5; pitchT = 0.15; }
+  if (anim === "waiting") yawT = Math.sin(t * 0.8) * 0.5;
+  if (anim === "running") { pitchT = 0.18; leanT = Math.sin(t * 14) * 0.02; }
+
+  P.yaw = damp(P.yaw, yawT, 6, dt);
+  P.pitch = damp(P.pitch, pitchT, 6, dt);
+  P.lean = damp(P.lean, leanT, 7, dt);
+
+  /* hover bob + flight flap */
+  const flapHz = mode === "fly" ? (Math.hypot(vx, vy) < 45 ? 5 : 3) :
+                 mode === "held" ? 6 : (anim === "glide" ? 3.6 : 0);
+  P.wingPhase += dt * Math.PI * 2 * (flapHz || 0.6);
+  P.flapAmpCur = damp(P.flapAmpCur, flapHz ? 0.85 : 0.12, 5, dt);
+  const bobT = airborne ? Math.sin(P.wingPhase) * 4 : (mode === "idle" ? Math.sin(t * 2.1) * 2.2 : 0);
+  P.bob = damp(P.bob, bobT, 8, dt);
+
+  /* ---- apply to scene ---- */
+  charGroup.position.set(toWX(x), groundWY() + alt + P.bob, 0);
+  const sy = P.sq.x + (airborne ? clamp(Math.abs(vy) * 0.0004, 0, 0.14) : 0);
+  const sxz = 1 - (sy - 1) * 0.6;
+  charGroup.scale.set(sxz, sy, sxz);
+  charGroup.rotation.z = -P.lean;
+  spinGroup.rotation.x = -P.spin;
+  modelGroup.rotation.y = P.yaw;
+  modelGroup.rotation.x = P.pitch;
+  if (anim === "waving") modelGroup.rotation.z = Math.sin(t * 12) * 0.12;   // cheerful wiggle
+  else if (anim === "failed") modelGroup.rotation.z = Math.sin(t * 0.9) * 0.03;
+  else modelGroup.rotation.z = damp(modelGroup.rotation.z, 0, 8, dt);
+
+  /* drive the wing bend: gentle breathing on the ground, big beats in the air */
+  FLAP.value = Math.sin(P.wingPhase + 0.4 * Math.sin(P.wingPhase)) * P.flapAmpCur * 0.55;
+
+  if (mixer) mixer.update(dt);
+
+  /* ---- dom companions ---- */
+  const sq = clamp(1 - alt / 340, 0.4, 1);
+  pet.style.transform = `translate3d(${x - 95}px, ${-(FLOOR - 12 + alt)}px, 0)`;
+  shadow.style.transform = `translate3d(${x - 60}px, ${-(FLOOR - 12)}px, 0) scaleX(${sq})`;
+  shadow.style.opacity = mode === "held" ? .3 : .32 + .4 * sq;
+  glow.style.transform = `translate3d(${x - 120}px, ${-(FLOOR - 34)}px, 0)`;
+  glow.style.opacity = .55 + .45 * sq;
+  bubble.style.transform = `translate3d(${x + 34}px, ${-(FLOOR + alt + CHAR_H + 6)}px, 0)`;
+
+  /* scripted particles */
+  if (anim === "failed" && animT > 2.4 && tms >= zzzAt) { zzzAt = tms + 1500; burst("zzz", x + 28, headTopY() + 26, 3); }
+  if (anim === "running" && tms >= sparkAt) { sparkAt = tms + 420; burst("spark", x + (Math.random() - .5) * 30, feetY() - 46, 2); }
+
+  ambient(dt); drawParts(dt);
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+
+addEventListener("resize", () => { sizeFx(); sizeStage(); x = clamp(x, minX, maxX()); });
+
+syncChips();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
