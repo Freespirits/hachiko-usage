@@ -1,11 +1,11 @@
+![Hachiko-Usage](banner.png)
+
 # Hachiko-Usage
 
 A loyal little desktop pet that watches your Claude usage. He is a plant-fox
 hatched by the Codex hatch pipeline (originally named Hojek), reborn as
 **Hachiko-Usage**: he waits faithfully on top of your taskbar with a thought
 cloud showing your Claude Code session and weekly usage limits.
-
-![Hachiko-Usage on the desktop](hachiko-usage.png)
 
 ## ⬇ Install in one press
 
@@ -23,7 +23,9 @@ immediately. Windows 10/11.
 He starts in **ghost mode** — 50% transparent, click-through (your mouse goes
 straight through him), and tiny — so he never gets in the way of real work.
 His thought cloud shows live session/weekly usage percentages, and the text
-stays fully readable even while he's ghosted.
+stays fully readable even while he's ghosted. Here he is on a real desktop:
+
+![Hachiko-Usage on the desktop](hachiko-usage.png)
 
 ## Controls
 
