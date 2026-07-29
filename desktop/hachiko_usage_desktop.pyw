@@ -161,12 +161,13 @@ class CloudBubble(QWidget):
         p = QPainter(self)
         p.setOpacity(self.opacity)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.setPen(QPen(QColor(255, 255, 255, 90), 1.5))
-        p.setBrush(QColor(255, 255, 255, 165))
+        p.setPen(QPen(QColor(255, 255, 255, 120), 1.5))
+        p.setBrush(QColor(255, 255, 255, 220))
         p.drawPath(self._cloud_path())
+        p.setOpacity(1.0)   # ghost mode dims only the cloud; text stays readable
 
-        label_font = QFont("Segoe UI", 9, QFont.Weight.DemiBold)
-        value_font = QFont("Segoe UI", 10, QFont.Weight.Bold)
+        label_font = QFont("Segoe UI", 10, QFont.Weight.DemiBold)
+        value_font = QFont("Segoe UI", 11, QFont.Weight.Bold)
         bar_track = QColor(140, 150, 162, 110)
         rows = [("Session", f.session, 30), ("Weekly", f.weekly, 55)]
         for label, value, y in rows:
