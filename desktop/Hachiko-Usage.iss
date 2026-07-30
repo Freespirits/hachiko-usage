@@ -2,7 +2,7 @@
 ; One-press install: every pre-install wizard page is disabled, so launching
 ; the setup immediately installs to %localappdata% and offers to let him out.
 #define AppName "Hachiko-Usage"
-#define AppVersion "1.1.0"
+#define AppVersion "1.2.0"
 #define AppExe "Hachiko-Usage.exe"
 
 [Setup]
