@@ -33,6 +33,8 @@ While click-through is on, the pet window ignores the mouse, so everything is
 driven from his **system tray icon** (right-click it):
 
 - states: wave, jump, fly, working, waiting, review, failed, idle
+- `pet` — switch between **Hojek** 🌱 the plant-fox and **Latch** 🛡 the
+  pangolin-fox guardian (same app, same controls, different pet)
 - `ghost 50%` — toggle the transparency
 - `click-through` — toggle mouse pass-through (off = you can drag, click to
   wave, double-click to jump, right-click him directly)
@@ -74,6 +76,10 @@ This produces `desktop\installer\Hachiko-Usage-Setup.exe`.
 
 - `index.html` / `hojek-atlas.png` / `hojek.json` — the original web sprite
   version and the hatch-pipeline atlas he is drawn from
+- `latch-atlas.png` / `latch.json` — Latch, the second pet: same 8×11 grid and
+  frame counts as Hojek, plus generated 16-direction look rows (Hojek's were
+  never generated). Known cosmetic nit: ~450 stray magenta pixels painted into
+  a few frames by the generator; details in `latch.json` notes.
 - `hachiko-usage-post.png` — his announcement-post card
 - `desktop3d.html`, `cute.glb`, `evil.glb`, `desktop/hojek3d_desktop.pyw` —
   the experimental 3D variant (still under the old name)
