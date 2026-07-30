@@ -5,7 +5,7 @@ a = Analysis(
     ['hachiko_usage_desktop.pyw'],
     pathex=[],
     binaries=[],
-    datas=[('..\\hojek-atlas.png', '.'), ('hojek.ico', '.')],
+    datas=[('..\\hojek-atlas.png', '.'), ('..\\latch-atlas.png', '.'), ('hojek.ico', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
