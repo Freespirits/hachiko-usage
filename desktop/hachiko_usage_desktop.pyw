@@ -75,9 +75,31 @@ USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 USAGE_POLL_SECONDS = 90
 CREDENTIALS = Path.home() / ".claude" / ".credentials.json"
 
+# Claude Code does not always keep a usable token in .credentials.json - it can
+# leave the record in place with accessToken empty and expiresAt 0. When that
+# happens the desktop usage widget, if installed, still holds a recent reading
+# in exactly the five_hour/seven_day shape the API returns, so read percentages
+# from there rather than showing nothing.
+WIDGET_CACHE = Path(os.environ.get("APPDATA", "")) / "claude-usage-widget" / "config.json"
+
 
 def _fmt_pct(v):
     return "…" if v is None else f"{round(v)}%"
+
+
+def _parse_usage(data):
+    """(session, weekly) out of either API response shape."""
+    session = weekly = None
+    for lim in data.get("limits") or []:
+        if lim.get("group") == "session":
+            session = lim.get("percent")
+        elif lim.get("kind") == "weekly_all":
+            weekly = lim.get("percent")
+    if session is None and data.get("five_hour"):
+        session = data["five_hour"].get("utilization")
+    if weekly is None and data.get("seven_day"):
+        weekly = data["seven_day"].get("utilization")
+    return session, weekly
 
 
 class UsageFetcher:
@@ -88,6 +110,7 @@ class UsageFetcher:
         self.session = None      # 0-100 or None
         self.weekly = None
         self.ok = False
+        self.source = None       # "live" | "cache" | None - drives the cloud label
         self.dirty = False
         threading.Thread(target=self._loop, daemon=True).start()
 
@@ -96,33 +119,50 @@ class UsageFetcher:
             self._fetch()
             time.sleep(USAGE_POLL_SECONDS)
 
-    def _fetch(self):
+    def _token(self):
         try:
-            creds = json.loads(CREDENTIALS.read_text(encoding="utf-8"))
-            token = creds["claudeAiOauth"]["accessToken"]
-            req = urllib.request.Request(
-                USAGE_URL,
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "anthropic-beta": "oauth-2025-04-20",
-                    "Content-Type": "application/json",
-                },
-            )
-            with urllib.request.urlopen(req, timeout=15) as r:
-                data = json.loads(r.read().decode())
-            session = weekly = None
-            for lim in data.get("limits") or []:
-                if lim.get("group") == "session":
-                    session = lim.get("percent")
-                elif lim.get("kind") == "weekly_all":
-                    weekly = lim.get("percent")
-            if session is None and data.get("five_hour"):
-                session = data["five_hour"].get("utilization")
-            if weekly is None and data.get("seven_day"):
-                weekly = data["seven_day"].get("utilization")
-            self.session, self.weekly, self.ok = session, weekly, True
+            oauth = json.loads(CREDENTIALS.read_text(encoding="utf-8"))["claudeAiOauth"]
         except Exception:
-            self.ok = False    # keep last known values, just flag staleness
+            return None
+        token = oauth.get("accessToken")
+        if not token:
+            return None                     # record present but logged out
+        expires = oauth.get("expiresAt") or 0
+        if expires and expires < time.time() * 1000:
+            return None                     # stale; asking would only 401
+        return token
+
+    def _from_api(self):
+        token = self._token()
+        if not token:
+            return None                     # no point sending "Bearer "
+        req = urllib.request.Request(
+            USAGE_URL,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "anthropic-beta": "oauth-2025-04-20",
+                "Content-Type": "application/json",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return _parse_usage(json.loads(r.read().decode()))
+
+    def _from_widget_cache(self):
+        data = json.loads(WIDGET_CACHE.read_text(encoding="utf-8")).get("latestUsageData")
+        return _parse_usage(data) if data else None
+
+    def _fetch(self):
+        for source, read in (("live", self._from_api), ("cache", self._from_widget_cache)):
+            try:
+                got = read()
+            except Exception:
+                continue
+            if got and got != (None, None):
+                self.session, self.weekly = got
+                self.ok, self.source = source == "live", source
+                self.dirty = True
+                return
+        self.ok = False        # keep last known values, just flag staleness
         self.dirty = True
 
 
@@ -199,7 +239,8 @@ class CloudBubble(QWidget):
         if not f.ok and f.session is not None:
             p.setPen(QColor(90, 96, 104))
             p.setFont(QFont("Segoe UI", 7))
-            p.drawText(QRectF(8, 78, 134, 10), Qt.AlignmentFlag.AlignHCenter, "offline")
+            label = "cached" if f.source == "cache" else "offline"
+            p.drawText(QRectF(8, 78, 134, 10), Qt.AlignmentFlag.AlignHCenter, label)
 
 
 class HachikoUsage(QWidget):
