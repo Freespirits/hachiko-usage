@@ -2,6 +2,12 @@
 
 # Hachiko-Usage
 
+<p align="center">
+  <a href="https://github.com/Freespirits/hachiko-usage/stargazers"><img src="https://img.shields.io/github/stars/Freespirits/hachiko-usage?style=social" alt="GitHub stars"></a>
+  <img src="https://img.shields.io/badge/Windows-supported-blue" alt="Windows">
+  <img src="https://img.shields.io/badge/macOS-3D%20variant-black" alt="macOS">
+</p>
+
 A loyal little desktop pet that watches your Claude usage. He is a plant-fox
 hatched by the Codex hatch pipeline (originally named Hojek), reborn as
 **Hachiko-Usage**: he waits faithfully on top of your taskbar with a thought
@@ -27,6 +33,54 @@ stays fully readable even while he's ghosted. Here he is on a real desktop:
 
 ![Hachiko-Usage on the desktop](hachiko-usage.png)
 
+## 😈 The 3D variant — Windows and macOS
+
+There's a second pet in here: a real 3D character rendered with three.js inside
+a transparent, frameless, always-on-top window, carrying the same usage
+thought-cloud. He walks the taskbar, flies waypoints, flaps his wings (a vertex-
+bend shader flexes the outer wing regions, so even an unrigged mesh comes
+alive), waves, and occasionally gives up and naps.
+
+<p align="center">
+  <img src="assets/demo.gif" alt="the 3D pet walking the taskbar carrying a Claude usage thought-cloud" width="640">
+</p>
+
+If he made you smile, **[give him a ⭐](https://github.com/Freespirits/hachiko-usage)** —
+it's the only thing he eats.
+
+**Run from source** (Python 3.11+, either platform):
+
+```
+pip install PySide6
+pythonw desktop\hojek3d_desktop.pyw
+```
+
+```
+python3 desktop/hojek3d_desktop.pyw
+```
+
+**Build a macOS `.app`**:
+
+```
+cd desktop && chmod +x build_app.sh && ./build_app.sh
+```
+
+That produces `desktop/dist/Devil-Usage.app` — a menu-bar-only accessory app
+(`LSUIElement`, so no Dock icon; quit him from the menu-bar icon). It's
+unsigned, so the first launch needs **right-click → Open**. Launch the `.app`
+itself rather than the binary inside it: QtWebEngine needs the bundle layout to
+find its helper process.
+
+Two macOS-specific fixes live in the code, both no-ops on Windows —
+`NoDropShadowWindowHint`, or a rectangular shadow frames the transparent window,
+and `WA_MacAlwaysShowToolWindow`, because a `Qt::Tool` window is an NSPanel and
+an NSPanel hides itself the moment another app takes focus, which for a desktop
+pet is fatal.
+
+His models are `cute-hd.glb` / `evil-hd.glb`. The lighter `cute.glb` /
+`evil.glb` at the repo root belong to the **web** pet and are deliberately left
+alone, so `index.html` stays mobile-friendly.
+
 ## Controls
 
 While click-through is on, the pet window ignores the mouse, so everything is
@@ -47,6 +101,14 @@ The tray tooltip also shows the current session/weekly percentages.
 `https://api.anthropic.com/api/oauth/usage` with the local Claude Code OAuth
 token from `~\.claude\.credentials.json`. Only the percentages are kept; the
 token never leaves the request.
+
+The 3D variant reads the same token, but the location is per-OS: the
+`~/.claude/.credentials.json` file on Windows and Linux, and the login
+**Keychain** (`Claude Code-credentials`, via `security find-generic-password`)
+on macOS. The file is tried first either way. On macOS the first read shows a
+one-time Keychain prompt, since the item was created by Claude Code and this is a
+different binary asking — click **Always Allow**. Deny it and the cloud just
+shows `…` while everything else keeps working.
 
 ---
 
@@ -75,5 +137,8 @@ This produces `desktop\installer\Hachiko-Usage-Setup.exe`.
 - `index.html` / `hojek-atlas.png` / `hojek.json` — the original web sprite
   version and the hatch-pipeline atlas he is drawn from
 - `hachiko-usage-post.png` — his announcement-post card
-- `desktop3d.html`, `cute.glb`, `evil.glb`, `desktop/hojek3d_desktop.pyw` —
-  the experimental 3D variant (still under the old name)
+- `desktop3d.html`, `cute-hd.glb`, `evil-hd.glb`, `desktop/hojek3d_desktop.pyw`,
+  `desktop/DevilUsage-mac.spec`, `desktop/build_app.sh` — the 3D variant above.
+  The script keeps its old filename so `desktop\Start Hojek 3D.bat` still works.
+- `assets/icon.iconset/` — the PNG set `build_app.sh` feeds to `iconutil` to
+  produce `hojek.icns` (Pillow can't write `.icns` anywhere but a Mac)

@@ -111,7 +111,7 @@ const loader = new THREE.GLTFLoader();
 function loadForm(name) {
   loader.load(name, g => { modelGroup.clear(); normalizeAndAdd(g.scene); });
 }
-loadForm("cute.glb");
+loadForm("cute-hd.glb");
 
 /* ---- state fed from Python ---- */
 const S = { state: "idle", facing: 1, vx: 0, vy: 0, air: 0 };

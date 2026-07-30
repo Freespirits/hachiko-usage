@@ -1,13 +1,21 @@
-"""Hojek 3D — desktop pet. Frameless always-on-top translucent window rendering
-the user-made GLB devil (pet/desktop3d.html via QtWebEngine, transparent WebGL).
-He walks along the taskbar, flies waypoints, can be dragged, clicked (wave),
-double-clicked (jump). Right-click for states, form (cute/evil), size and Quit.
-Usage thought-cloud (Session/Weekly) carried over from the sprite version."""
+"""Devil-Usage &_& — a tiny 3D devil desktop pet that watches your Claude usage.
+
+Frameless, always-on-top, translucent and (by default) fully click-through, so
+he never steals a click. He walks along the taskbar, flies waypoints around the
+screen, and carries a thought-cloud with your Session / Weekly usage.
+
+Control him from the system-tray devil icon: states, form (cute/evil), ghost
+mode, opacity, size, quit. Turn ghost mode OFF to drag him, click (wave),
+double-click (jump) and right-click him directly.
+
+The 3D body is a user-made GLB rendered by desktop3d.html (three.js inside
+QtWebEngine, transparent WebGL). Python owns behavior and feeds the renderer."""
 
 import json
 import math
 import os
 import random
+import subprocess
 import sys
 import threading
 import time
@@ -15,16 +23,41 @@ import urllib.request
 from pathlib import Path
 
 from PySide6.QtCore import QRectF, Qt, QTimer, QUrl, QCoreApplication
-from PySide6.QtGui import QAction, QColor, QFont, QGuiApplication, QPainter, QPainterPath, QPen
+from PySide6.QtGui import (
+    QAction, QColor, QDesktopServices, QFont, QGuiApplication, QIcon,
+    QPainter, QPainterPath, QPen,
+)
 from PySide6.QtWebEngineCore import QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtWidgets import QApplication, QMenu, QWidget
+from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon, QWidget
+
+IS_MAC = sys.platform == "darwin"
 
 if getattr(sys, "frozen", False):
-    BASE = Path(sys._MEIPASS)
+    BASE = HERE = Path(sys._MEIPASS)   # frozen: everything is flattened to one dir
 else:
-    BASE = Path(__file__).resolve().parent.parent
+    HERE = Path(__file__).resolve().parent   # desktop/ - script + .ico live here
+    BASE = HERE.parent                       # repo root - renderer + models live here
 PAGE = BASE / "desktop3d.html"
+ICON = HERE / "hojek.ico"
+
+
+def _tray_icon():
+    """The .ico has crisp 16/24/32 px frames for the Windows notification area;
+    the macOS menu bar wants a 22 pt PNG (with an @2x beside it for Retina)."""
+    if IS_MAC:
+        for p in (HERE / "tray.png", BASE / "assets" / "tray.png"):
+            if p.exists():
+                return p
+    return ICON
+
+
+def keep_visible_on_mac(w):
+    """Qt::Tool maps to an NSPanel on macOS, and an NSPanel hides itself the
+    moment another app takes focus — fatal for a pet that is supposed to just be
+    around. This attribute pins it open regardless of which app is active."""
+    if IS_MAC:
+        w.setAttribute(Qt.WidgetAttribute.WA_MacAlwaysShowToolWindow)
 
 WALK_SPEED = 130
 FLY_SPEED = 170
@@ -34,6 +67,30 @@ JUMP_VY = 520
 USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 USAGE_POLL_SECONDS = 90
 CREDENTIALS = Path.home() / ".claude" / ".credentials.json"
+KEYCHAIN_SERVICE = "Claude Code-credentials"
+
+
+def read_credentials():
+    """Claude Code keeps its OAuth token in ~/.claude/.credentials.json on
+    Windows and Linux, but in the login Keychain on macOS. Try the file first
+    either way — some macOS setups still have it — then fall back to `security`.
+
+    The first Keychain read shows a one-time macOS prompt, because the item was
+    created by Claude Code and this is a different binary asking for it."""
+    if CREDENTIALS.exists():
+        return json.loads(CREDENTIALS.read_text(encoding="utf-8"))
+    if IS_MAC:
+        out = subprocess.run(
+            ["security", "find-generic-password", "-s", KEYCHAIN_SERVICE, "-w"],
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        if out.returncode == 0 and out.stdout.strip():
+            return json.loads(out.stdout.strip())
+    raise FileNotFoundError("no Claude Code credentials found")
+
+STAR_URL = "https://github.com/Freespirits/hachiko-usage"
 
 MENU_STATES = [
     ("wave 👋", "waving"), ("jump ⬆", "jumping"), ("fly ☁", "fly"), (None, None),
@@ -60,7 +117,7 @@ class UsageFetcher:
 
     def _fetch(self):
         try:
-            creds = json.loads(CREDENTIALS.read_text(encoding="utf-8"))
+            creds = read_credentials()
             token = creds["claudeAiOauth"]["accessToken"]
             req = urllib.request.Request(
                 USAGE_URL,
@@ -108,11 +165,13 @@ class CloudBubble(QWidget):
             None,
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.NoDropShadowWindowHint
             | Qt.WindowType.Tool
             | Qt.WindowType.WindowTransparentForInput,
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        keep_visible_on_mac(self)
         self.fetcher = fetcher
         self.resize(self.W, self.H)
 
@@ -161,15 +220,18 @@ class CloudBubble(QWidget):
             p.drawText(QRectF(8, 78, 134, 10), Qt.AlignmentFlag.AlignHCenter, "offline")
 
 
-class Hojek3D(QWidget):
+class Devil(QWidget):
     def __init__(self, side=310):
         super().__init__(
             None,
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.NoDropShadowWindowHint
             | Qt.WindowType.Tool,
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        keep_visible_on_mac(self)
         self.resize(side, side)
 
         self.view = QWebEngineView(self)
@@ -196,7 +258,9 @@ class Hojek3D(QWidget):
         self.act_until = 0.0
         self.next_thought = time.monotonic() + 2.0
         self.pinned = None
-        self.form = "cute.glb"
+        self.form = "cute-hd.glb"
+        self.ghost = True           # click-through: he never steals input
+        self.opacity_val = 0.85
 
         self._press_pos = None
         self._drag_moved = 0.0
@@ -216,7 +280,29 @@ class Hojek3D(QWidget):
         self._timer = QTimer(self, interval=16)
         self._timer.timeout.connect(self._tick)
         self._timer.start()
+        self._apply_ghost()
+        self._apply_opacity()
         self._place()
+
+    # ---------- ghost / opacity ----------
+    def _apply_ghost(self):
+        self.setWindowFlag(Qt.WindowType.WindowTransparentForInput, self.ghost)
+        self.show()
+        if IS_MAC:
+            # toggling a window flag rebuilds the NSWindow, which can leave it
+            # sitting below other windows despite WindowStaysOnTopHint
+            self.raise_()
+
+    def _apply_opacity(self):
+        self.setWindowOpacity(self.opacity_val)
+
+    def toggle_ghost(self):
+        self.ghost = not self.ghost
+        self._apply_ghost()
+
+    def set_opacity(self, v):
+        self.opacity_val = v
+        self._apply_opacity()
 
     # ---------- js bridge ----------
     def _js(self, code):
@@ -386,7 +472,7 @@ class Hojek3D(QWidget):
             held = "held" if self.mode == "held" else self.state
             self._js(f"H.set('{held}',{self.facing},{vx:.0f},{vyv:.0f},{air})")
 
-    # ---------- interaction ----------
+    # ---------- interaction (active only when ghost mode is off) ----------
     def mousePressEvent(self, e):
         if e.button() == Qt.MouseButton.LeftButton:
             self._press_pos = e.globalPosition()
@@ -436,6 +522,15 @@ class Hojek3D(QWidget):
 
     def contextMenuEvent(self, e):
         menu = QMenu(self)
+        self.build_menu(menu)
+        menu.exec(e.globalPos())
+
+    # ---------- menu (shared by tray + right-click) ----------
+    def build_menu(self, menu):
+        star = QAction("⭐ star this pet on GitHub", menu)
+        star.triggered.connect(lambda: QDesktopServices.openUrl(QUrl(STAR_URL)))
+        menu.addAction(star)
+        menu.addSeparator()
         for label, name in MENU_STATES:
             if label is None:
                 menu.addSeparator()
@@ -445,10 +540,18 @@ class Hojek3D(QWidget):
             menu.addAction(act)
         menu.addSeparator()
         form = menu.addMenu("form")
-        for label, f in [("cute 😈", "cute.glb"), ("evil 👿", "evil.glb")]:
+        for label, f in [("cute 😈", "cute-hd.glb"), ("evil 👿", "evil-hd.glb")]:
             act = QAction(label + (" ✓" if self.form == f else ""), form)
             act.triggered.connect(lambda _=False, v=f: self._set_form(v))
             form.addAction(act)
+        ghost = QAction(("✓ " if self.ghost else "") + "ghost mode (click-through)", menu)
+        ghost.triggered.connect(self.toggle_ghost)
+        menu.addAction(ghost)
+        opac = menu.addMenu("opacity")
+        for label, v in [("50%", 0.5), ("70%", 0.7), ("85%", 0.85), ("100%", 1.0)]:
+            act = QAction(label + (" ✓" if abs(self.opacity_val - v) < 0.01 else ""), opac)
+            act.triggered.connect(lambda _=False, val=v: self.set_opacity(val))
+            opac.addAction(act)
         cloud_act = QAction(("hide" if self.cloud_visible else "show") + " usage cloud", menu)
         cloud_act.triggered.connect(self._toggle_cloud)
         menu.addAction(cloud_act)
@@ -457,10 +560,9 @@ class Hojek3D(QWidget):
             act = QAction(label + (" ✓" if self.width() == px else ""), size)
             act.triggered.connect(lambda _=False, v=px: self.resize(v, v))
             size.addAction(act)
-        quit_act = QAction("quit Hojek", menu)
+        quit_act = QAction("quit devil", menu)
         quit_act.triggered.connect(QApplication.quit)
         menu.addAction(quit_act)
-        menu.exec(e.globalPos())
 
     def _menu_state(self, name):
         if name == "fly":
@@ -493,11 +595,26 @@ class Hojek3D(QWidget):
 def main():
     QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True)
     app = QApplication(sys.argv)
-    app.setApplicationName("Hojek3D")
-    pet = Hojek3D()
+    app.setApplicationName("Devil-Usage")
+    app.setQuitOnLastWindowClosed(False)
+    pet = Devil()
     pet.show()
     pet.cloud.show()
-    if os.environ.get("HOJEK_TEST_FLY"):
+
+    tray = QSystemTrayIcon(QIcon(str(_tray_icon())), app)
+    tray.setToolTip("Devil-Usage &_& — right-click me")
+    tray_menu = QMenu()
+    pet.build_menu(tray_menu)
+    # rebuild the menu each time so checkmarks stay fresh
+    def refresh_menu():
+        tray_menu.clear()
+        pet.build_menu(tray_menu)
+    tray_menu.aboutToShow.connect(refresh_menu)
+    tray.setContextMenu(tray_menu)
+    tray.show()
+    app._tray, app._tray_menu = tray, tray_menu   # keep refs alive
+
+    if os.environ.get("DEVIL_TEST_FLY"):
         QTimer.singleShot(1500, pet._start_fly)
     sys.exit(app.exec())
 
