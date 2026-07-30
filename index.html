@@ -329,7 +329,7 @@ function onModel(gltf) {
 const FORMS = [["cute.glb", "cute 😈", "hehe 😈"], ["evil.glb", "evil 👿", "MUAHAHA!! 👿"]];
 let form = new URLSearchParams(location.search).get("glb") ||
            localStorage.getItem("hojekForm") || "cute.glb";
-function loadForm(name) {
+function loadForm(name, attempt = 0) {
   loader.load(name, g => {
     onModel(g);
     form = name;
@@ -337,7 +337,15 @@ function loadForm(name) {
     const f = FORMS.find(f => f[0] === name);
     say(f ? f[2] : "new body!", 2200);
     syncForms();
-  }, undefined, () => { if (!hasModel) say("hmm, " + name + " did not load", 5000); });
+  }, e => {
+    if (hasModel) return;
+    const pct = e.total ? Math.round(e.loaded / e.total * 100) + "%"
+                        : (e.loaded / 1048576).toFixed(1) + " MB";
+    say("growing his body… " + pct, 1400);
+  }, () => {
+    if (attempt < 2) setTimeout(() => loadForm(name, attempt + 1), 1000 * (attempt + 1));
+    else if (!hasModel) say("hmm, " + name + " did not load 😞", 6000);
+  });
 }
 loadForm(form);
 
