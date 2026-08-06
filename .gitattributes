@@ -1,0 +1,10 @@
+# build_app.sh must stay LF-only. Checked out with CRLF on Windows, bash fails
+# with "bad interpreter: /usr/bin/env bash^M" on the Mac that pulls it.
+*.sh text eol=lf
+
+# never normalize or diff the binary assets
+*.glb  binary
+*.ico  binary
+*.icns binary
+*.png  binary
+*.gif  binary
